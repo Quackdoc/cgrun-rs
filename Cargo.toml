@@ -1,0 +1,15 @@
+[package]
+name = "cgrun-rs"
+version = "0.1.0"
+edition = "2024"
+description = "daemonless cgroup runner with dmem, memory and cpu control"
+license = "MIT"
+
+[dependencies]
+usage = { package = "usage-rs", version = "6" }
+anyhow = "1.0"
+nix = { version = "0.31", features = ["process", "signal", "fs", "user"] }
+
+[[bin]]
+name = "cgrun"
+path = "src/main.rs"
