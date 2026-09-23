@@ -166,6 +166,13 @@ fn is_not_found(e: &anyhow::Error) -> bool {
     })
 }
 
+pub(crate) fn is_enotsup(e: &anyhow::Error) -> bool {
+    e.chain().any(|c| {
+        c.downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.raw_os_error() == Some(nix::errno::Errno::EOPNOTSUPP as i32))
+    })
+}
+
 /// Pids in a cgroup. A missing cgroup.procs means the cgroup is already
 /// Any other read failure errors instead of silently killing nothing.
 fn tree_pids(cgroup: &Path) -> Result<Vec<i32>> {

@@ -296,12 +296,19 @@ pub(crate) fn signal_cgroup(
     cgroup: &Path,
     sig: nix::sys::signal::Signal,
 ) -> Result<bool> {
-    if sig == nix::sys::signal::SIGKILL {
-        cgroup::kill_tree(cgroup)?;
+    let owned = is_cgrun_target(mount, base, cgroup);
+    let kill_res = if sig == nix::sys::signal::SIGKILL {
+        cgroup::kill_tree(cgroup)
     } else {
-        cgroup::signal_tree(mount, cgroup, sig)?;
+        cgroup::signal_tree(mount, cgroup, sig)
+    };
+    match kill_res {
+        Ok(()) => {}
+        // Kernel refused the kill interfaces (EOPNOTSUPP) so rmdir
+        Err(e) if cgroup::is_enotsup(&e) && owned => {}
+        Err(e) => return Err(e),
     }
-    if !is_cgrun_target(mount, base, cgroup) {
+    if !owned {
         return Ok(false);
     }
     match cgroup::remove_cgroup_with_retry(cgroup) {
@@ -474,6 +481,12 @@ fn cmd_clean(base: &str, force: bool) -> Result<()> {
     }
     if cleaned > 0 {
         println!("cleaned {cleaned} cgroup(s)");
+    }
+    if privilege::is_root() {
+        bail!(
+            "could not remove {} cgroup(s) (see errors above)",
+            failed.len()
+        );
     }
     bail!(
         "could not remove {} cgroup(s) (permission denied = not yours; run as owner or root)",

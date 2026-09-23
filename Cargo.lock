@@ -10,15 +10,15 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "bitflags"
-version = "2.13.1"
+version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
+checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
 name = "cfg-if"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "cfg_aliases"
@@ -73,9 +73,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.5"
+version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -84,21 +84,21 @@ dependencies = [
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.24"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+checksum = "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"
 
 [[package]]
 name = "usage-argv"
-version = "6.8.0"
+version = "6.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80dcf875185d0520e1a0675f6d413749e5050fde359eede97e45d0b9690eedbd"
+checksum = "669a2fcdc2d909c0858fcf190d6135dd9fb303da3497f1b9fea8592bb414d74c"
 
 [[package]]
 name = "usage-derive"
-version = "6.8.0"
+version = "6.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "778373c082248ae6050e96beb69c817cf109b8c8e925fbcbdf2155a12e517442"
+checksum = "fba1fef6ebefcad2733a1120567baf665b67b85382539de4b6187dd85b5eab12"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -107,9 +107,9 @@ dependencies = [
 
 [[package]]
 name = "usage-rs"
-version = "6.8.0"
+version = "6.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "894bcecc06869ce740fde1135ac8ee60d82bf33e88f34e4fee434a62e98e15e8"
+checksum = "3ba4af226b5e8186231f5fc83dc913522fab3b5accc7fc3811e940794d522407"
 dependencies = [
  "usage-argv",
  "usage-derive",

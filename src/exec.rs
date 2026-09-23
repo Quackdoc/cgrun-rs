@@ -4,17 +4,6 @@ use nix::unistd::{ForkResult, fork};
 use std::ffi::CString;
 use std::path::Path;
 
-fn is_enotsup(e: &anyhow::Error) -> bool {
-    for cause in e.chain() {
-        if let Some(io) = cause.downcast_ref::<std::io::Error>()
-            && io.raw_os_error() == Some(nix::errno::Errno::EOPNOTSUPP as i32)
-        {
-            return true;
-        }
-    }
-    false
-}
-
 fn enotsup_hint(cgroup: &Path) -> String {
     format!(
         "move to {}: Operation not supported — delegation not properly enabled (parent {} must be writable, have controllers in cgroup.controllers and +controllers in cgroup.subtree_control, and satisfy no-internal-process: no tasks in the parent when it has children)",
@@ -56,7 +45,7 @@ pub fn spawn_in_cgroup(
                     let _ = nix::sys::signal::kill(child, nix::sys::signal::SIGKILL);
                     drop(write_fd);
                     let _ = waitpid(child, None);
-                    if is_enotsup(&e) {
+                    if crate::cgroup::is_enotsup(&e) {
                         return Err(e).context(enotsup_hint(cgroup));
                     }
                     return Err(e).context(format!("move to {}", cgroup.display()));

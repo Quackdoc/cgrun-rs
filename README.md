@@ -2,12 +2,12 @@
 
 Daemonless cgroup v2 runner with `dmem`, `memory` and `cpu` control.
 
-Create isolated, delegatable cgroups with no daemon, with optional VRAM control [[1]](#references) and CPU weighting. Regular runs are rootless and never escalate; `--priv`, `setup` and `clean` escalate via `pkexec`.
+Create isolated, delegatable cgroups with no daemon, with optional Ram and VRAM control [[1]](#references) and CPU weighting. Regular runs are rootless and never escalate; `--priv`, `setup` and `clean` escalate via `pkexec`.
 
 ## Features
 
 - Transient cgroups (auto-cleaned) and named persistent cgroups
-- `dmem` low limit: protect `N` bytes per region from eviction to GTT/system RAM (`dmem.low` — `--vram-low 7G` or `--vram-low drm/card0/vram:4G`) — keeps the working set resident in VRAM instead of spilling over PCIe
+- `dmem` low limit: protect `N` bytes per region from eviction to GTT/system RAM (`dmem.low` — `--vram-low 7G` or `--vram-low drm/card0/vram:4G`) — keeps the working set resident in VRAM instead of spilling over PCIe on supported systems (i915 does not have the kernel support)
 - CPU control: `cpu.weight` (`--cpu-weight 500`) or nice mapping (`--cpu-weight-nice -5`)
 - Memory control: `memory.max/high/low/min` (`--memory-max 4G`, `--memory-high 6G`, ... or `max`)
 - Daemonless — direct cgroupfs (`/sys/fs/cgroup`), no service required
@@ -52,11 +52,11 @@ Transient leaves are named `cgrun-<pid>-<rand>.scope`. Regular runs always stay 
 ## Privilege Model
 
 - **Regular (no `--priv`)**: always runs within your current scope. Never escalates — if the parent cgroup isn't delegated to you, the run fails with a delegation error. No auth prompt.
-    May need a service to handle nested delegation, for example: `dmemcg-booster` on `systemd` systems. Manual delegation possible (see below).
+    May need a service to handle nested delegation for controls, for example: `dmemcg-booster` on `systemd` systems.
 - **With `--priv`**: always runs under `/sys/fs/cgroup/cgrun`. Escalates via `pkexec` once to create and chown the leaf, then continues unprivileged.
 
 ```sh
-# One-time system setup (creates and delegates cgrun)
+# One-time run creation (creates and delegates cgroup without starting a process)
 ./target/release/cgrun setup
 # Check only
 ./target/release/cgrun setup --check
@@ -66,7 +66,7 @@ Transient leaves are named `cgrun-<pid>-<rand>.scope`. Regular runs always stay 
 
 `run --priv` creates its leaf under `/sys/fs/cgroup/cgrun` on demand (escalating via `pkexec`); `setup` is only needed if you want the base pre-created and delegated.
 
-### Manual delegation (without `pkexec` or service)
+### Manual control delegation (without `pkexec` or service)
 It is possible to do enable support for this manually to bypass the need for pkexec or a manual service.
 **enable `+dmem` top-down — every ancestor that should pass the controller to its children must have it enabled**. 
 A leaf only lists `dmem` in `cgroup.controllers` if all parents did.
@@ -121,6 +121,8 @@ everything under the system base (`--base`, default `cgrun`) plus all
 transient `cgrun-*.scope` leaves wherever they live, with kind, member pid
 count and enabled controllers.
 
+useful tidbitL You can list processes and their cgroups using `ps -e -o cgroup:50,pid,user,args:100 --sort=cgroup,args`
+
 `cgrun kill [-s SIGNAL] <cgroup>` signals one cgroup and then removes it —
 the single-cgroup equivalent of `clean`. Only cgrun-created targets (under
 the system base or named `cgrun-*`) are removed; anything else is signaled
@@ -136,11 +138,11 @@ scope under an arbitrary name and leave no marker, so `list` cannot find
 them — use `--priv` (always under `/sys/fs/cgroup/cgrun/<name>`) for
 persistent cgroups you want discoverable.
 
+This is todo for fixing eventually.
+
 ## dmem — Keeping VRAM Resident
 
-`--vram-low` sets `dmem.low` — a *low protection* boundary, not a hard limit. While a cgroup's usage is below that boundary the kernel will try hard to keep its allocations resident in VRAM and instead evict/allocate from unprotected cgroups into `GTT` (system RAM accessed over PCIe, ~16 GB/s vs ~256 GB/s). Above the boundary the protection drops and the cgroup's memory can be spilled like any other.
-
-This matches the behavior described by the dmem author: protection means the kernel avoids eviction; the limit is how much is protected. See References.
+`--vram-low` sets `dmem.low` — While a cgroup's usage is below that boundary the kernel will try hard to keep its allocations resident in VRAM and instead evict/allocate from unprotected cgroups into `GTT` (system RAM accessed over PCIe). See References.
 
 `SPEC` is `SIZE` or `REGION:SIZE`:
 
@@ -159,7 +161,7 @@ If no `--vram-low`/`--vram-max` is given, `dmem.low`/`dmem.max` are left alone. 
 
 ## Memory Details
 
-- `--memory-max SIZE|max` writes `memory.max` (hard limit, system RAM — not VRAM, see `dmem` above)
+- `--memory-max SIZE|max` writes `memory.max` (hard limit)
 - `--memory-high SIZE|max` writes `memory.high` (throttle boundary)
 - `--memory-low SIZE|max` writes `memory.low` (protection)
 - `--memory-min SIZE|max` writes `memory.min` (min protection)
@@ -175,19 +177,11 @@ If no `--vram-low`/`--vram-max` is given, `dmem.low`/`dmem.max` are left alone. 
 
 Transient cgroups are removed automatically on exit with a `2s` graceful period (`--grace 0` for immediate `SIGKILL`).
 
-## How It Works
-
-1. Resolves cgroup v2 mount (`/sys/fs/cgroup` or `/proc/self/mountinfo`)
-2. Picks placement by mode: regular runs stay within the current scope, `--priv` runs under `/sys/fs/cgroup/cgrun` (created via `pkexec`, chowned to you)
-3. Enables only the requested controllers (`+dmem`/`+memory`/`+cpu`) at the mount and parent, then creates the leaf directory
-4. Forks, writes child pid to `cgroup.procs` via a pipe barrier, then `exec`s the target
-
-See `src/control.rs`, `src/cgroup.rs`, `src/exec.rs` for the implementation.
 
 ## Troubleshooting
 
 - `dmem not available` — kernel/driver doesn't expose the `dmem` controller; use `memory`/`cpu` only or check `cat /sys/fs/cgroup/dmem.capacity`
-- `cannot create cgroup ... is not delegated to you` — parent cgroup isn't writable by you; delegate it (see Manual delegation) or rerun with `--priv`
+- `cannot create cgroup ... is not delegated to you` — parent cgroup isn't writable by you; rerun with `--priv`
 - `cgroup busy` on removal — process still attached; `cgrun kill -s KILL <cgroup>` or wait for `grace`
 
 ## References
@@ -197,6 +191,7 @@ See `src/control.rs`, `src/cgroup.rs`, `src/exec.rs` for the implementation.
 ## TODO
 
 - Track `flatten the pick` cgroup scheduling patches for gaming — Phoronix [Flatten The Pick v3](https://www.phoronix.com/news/Flatten-The-Pick-v3) (flat run-queue / `cgroup_mode` via dynamic weight, big min-FPS gains on older Intel + Polaris). Evaluate `cgroup_mode` handling once upstream.
+- fix cleaning renamed cgroups
 
 ## License
 
